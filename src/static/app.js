@@ -20,23 +20,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
-        // Build participants list HTML
-        let participantsHTML = "";
+        // Build participants list DOM
+        let participantsSection;
         if (details.participants.length > 0) {
-          participantsHTML = `
-            <div class="participants-section">
-              <strong>Participants:</strong>
-              <ul class="participants-list">
-                ${details.participants.map(p => `<li>${p}</li>`).join("")}
-              </ul>
-            </div>
-          `;
+          participantsSection = document.createElement("div");
+          participantsSection.className = "participants-section";
+          const strong = document.createElement("strong");
+          strong.textContent = "Participants:";
+          participantsSection.appendChild(strong);
+
+          const ul = document.createElement("ul");
+          ul.className = "participants-list";
+          ul.style.listStyleType = "none";
+          ul.style.padding = "0";
+
+          details.participants.forEach(email => {
+            const li = document.createElement("li");
+            li.style.display = "flex";
+            li.style.alignItems = "center";
+
+            const span = document.createElement("span");
+            span.textContent = email;
+            span.style.flexGrow = "1";
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerHTML = "🗑️";
+            deleteBtn.title = "Unregister participant";
+            deleteBtn.style.marginLeft = "8px";
+            deleteBtn.style.background = "none";
+            deleteBtn.style.border = "none";
+            deleteBtn.style.cursor = "pointer";
+            deleteBtn.style.fontSize = "1em";
+            deleteBtn.addEventListener("click", async () => {
+              if (confirm(`Unregister ${email} from ${name}?`)) {
+                try {
+                  const res = await fetch(`/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(email)}`, {
+                    method: "DELETE"
+                  });
+                  const result = await res.json();
+                  if (res.ok) {
+                    fetchActivities();
+                  } else {
+                    alert(result.detail || "Failed to unregister participant.");
+                  }
+                } catch (err) {
+                  alert("Error unregistering participant.");
+                }
+              }
+            });
+
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+            ul.appendChild(li);
+          });
+          participantsSection.appendChild(ul);
         } else {
-          participantsHTML = `
-            <div class="participants-section no-participants">
-              <em>No participants yet.</em>
-            </div>
-          `;
+          participantsSection = document.createElement("div");
+          participantsSection.className = "participants-section no-participants";
+          const em = document.createElement("em");
+          em.textContent = "No participants yet.";
+          participantsSection.appendChild(em);
         }
 
         activityCard.innerHTML = `
@@ -44,8 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-          ${participantsHTML}
         `;
+        activityCard.appendChild(participantsSection);
 
         activitiesList.appendChild(activityCard);
 
@@ -82,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // Refresh activities list after successful signup
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
